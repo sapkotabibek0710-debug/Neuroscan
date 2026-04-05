@@ -1,0 +1,593 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>NEUROSCAN // v0.9</title>
+    <style>
+        @import url('https://fonts.googleapis.com/css2?family=VT323&display=swap');
+
+        :root {
+            --neon-green: #00ff9f;
+            --neon-cyan: #00f0ff;
+        }
+        * { margin: 0; padding: 0; box-sizing: border-box; }
+        html, body {
+            height: 100%;
+            background: #0a0a0a;
+            color: var(--neon-green);
+            font-family: 'VT323', monospace;
+            overflow: hidden;
+        }
+        .app {
+            width: 100%;
+            height: 100%;
+            display: flex;
+            flex-direction: column;
+            background: #111;
+            box-shadow: 0 0 100px rgba(0, 255, 159, 0.6);
+        }
+        .header {
+            background: #1a1a1a;
+            padding: 20px 15px;
+            text-align: center;
+            border-bottom: 5px solid var(--neon-cyan);
+            flex-shrink: 0;
+        }
+        .header h1 {
+            font-size: clamp(2.4rem, 8vw, 3.2rem);
+            text-shadow: 0 0 25px var(--neon-green), 0 0 50px var(--neon-cyan);
+        }
+        .subtitle {
+            color: var(--neon-cyan);
+            font-size: 1.25rem;
+            margin-top: 8px;
+        }
+
+        .content {
+            flex: 1;
+            padding: 30px 25px;
+            overflow: hidden;
+            position: relative;
+        }
+
+        .ai-message {
+            background: rgba(0, 32, 32, 0.95);
+            border: 3px solid var(--neon-cyan);
+            padding: 28px 32px;
+            margin-bottom: 35px;
+            box-shadow: 0 0 40px rgba(0, 240, 255, 0.5);
+        }
+
+        #intro-text {
+            font-size: clamp(2.6rem, 8vw, 3.4rem); /* Slightly bigger as requested */
+            line-height: 1.35;
+            text-shadow: 0 0 20px var(--neon-cyan), 0 0 45px var(--neon-green);
+            white-space: pre-line;
+        }
+
+        .question {
+            font-size: clamp(1.85rem, 5.5vw, 2.4rem);
+            line-height: 1.5;
+            min-height: 100px;
+        }
+
+        .options {
+            display: flex;
+            flex-direction: column;
+            gap: 22px;
+            margin-top: 40px;
+        }
+
+        button {
+            background: transparent;
+            color: var(--neon-green);
+            border: 3px solid var(--neon-green);
+            padding: 20px 40px;
+            font-size: clamp(1.55rem, 4.5vw, 1.75rem);
+            cursor: pointer;
+            transition: all 0.3s;
+            white-space: nowrap;
+        }
+        button:hover:not(:disabled) {
+            background: var(--neon-green);
+            color: #000;
+            box-shadow: 0 0 45px var(--neon-green);
+            transform: scale(1.08);
+        }
+        button:disabled {
+            opacity: 0.3;
+            cursor: not-allowed;
+        }
+
+        /* Fixed Result Screen Scrolling */
+        .result-screen {
+    display: none;
+    flex-direction: column;
+    position: absolute;
+    top: 0;
+    left: 0;
+    width: 100%;
+    height: 100%;
+    overflow-y: auto;
+    padding: 40px 25px 100px;
+    scrollbar-width: thin;
+    scrollbar-color: var(--neon-cyan) #1a1a1a;
+    scroll-behavior: smooth;
+    background: #111;
+}
+        .result-screen::-webkit-scrollbar {
+            width: 10px;
+        }
+        .result-screen::-webkit-scrollbar-thumb {
+            background: var(--neon-cyan);
+            border-radius: 5px;
+        }
+        .result-screen::-webkit-scrollbar-track {
+            background: #1a1a1a;
+        }
+
+        .result-panel {
+            background: rgba(5, 20, 20, 0.98);
+            border: 3px solid var(--neon-cyan);
+            box-shadow: 0 0 60px rgba(0, 240, 255, 0.7);
+            padding: 50px 35px;
+            margin: 0 auto;
+            width: 100%;
+            max-width: 740px;
+        }
+
+        .result-title {
+            font-size: clamp(2rem, 6vw, 2.5rem);
+            color: var(--neon-cyan);
+            text-align: center;
+            margin-bottom: 30px;
+            text-shadow: 0 0 25px var(--neon-cyan);
+        }
+        .character {
+            font-size: clamp(4.2rem, 12vw, 5.8rem);
+            color: var(--neon-cyan);
+            text-shadow: 0 0 45px var(--neon-cyan), 0 0 100px var(--neon-green);
+            text-align: center;
+            margin: 25px 0 35px;
+            animation: glitch 2s linear infinite alternate;
+        }
+        @keyframes glitch {
+            0%, 100% { transform: translate(0); }
+            25% { transform: translate(-8px, 6px); }
+            50% { transform: translate(8px, -6px); }
+        }
+        .confidence {
+            font-size: clamp(2.4rem, 6.5vw, 3rem);
+            text-align: center;
+            margin: 25px 0 40px;
+            text-shadow: 0 0 35px var(--neon-green);
+        }
+        .confidence-bar {
+            height: 20px;
+            background: #111;
+            border: 3px solid var(--neon-green);
+            margin: 30px auto 50px;
+            max-width: 460px;
+            border-radius: 6px;
+            overflow: hidden;
+        }
+        .confidence-fill {
+            height: 100%;
+            background: linear-gradient(to right, #00ff9f, #00f0ff);
+            box-shadow: 0 0 50px var(--neon-green);
+            transition: width 2s ease-out;
+        }
+        .description {
+            font-size: clamp(1.7rem, 4.8vw, 1.95rem);
+            line-height: 1.75;
+            text-align: center;
+            margin: 40px 0 50px;
+        }
+        .neural-vector {
+            background: rgba(0, 0, 0, 0.92);
+            border: 2px dashed var(--neon-cyan);
+            padding: 28px 32px;
+            font-size: clamp(1.45rem, 4.2vw, 1.58rem);
+            line-height: 2.1;
+            color: #00ffdd;
+            margin: 40px 0;
+            border-radius: 8px;
+            white-space: pre-wrap;
+        }
+        .result-buttons {
+            display: flex;
+            gap: 22px;
+            justify-content: center;
+            margin-top: 60px;
+            flex-wrap: wrap;
+            padding-bottom: 40px;
+        }
+        .result-buttons button {
+            min-width: 230px;
+        }
+    </style>
+</head>
+<body>
+    <div class="app">
+        <div class="header">
+            <h1>NEUROSCAN v0.9</h1>
+            <div class="subtitle">PERSONALITY INTERROGATION SYSTEM</div>
+        </div>
+
+        <div class="content">
+            <!-- Name Screen -->
+            <div id="name-screen">
+                <div class="ai-message">
+                    <div id="intro-text">NEURAL LINK ESTABLISHED<br><span style="color:#00f0ff;">SUBJECT IDENTIFICATION REQUIRED</span></div>
+                </div>
+                <div style="text-align:center; margin-top:60px;">
+                    <input type="text" id="user-name" placeholder="ENTER YOUR NAME" maxlength="20"
+                           style="background:transparent; border:3px solid var(--neon-cyan); color:var(--neon-green); font-size:2.3rem; padding:18px; width:94%; max-width:520px; text-align:center;">
+                    <br><br><br>
+                    <button onclick="startModeSelection()">INITIALIZE NEURAL SCAN</button>
+                </div>
+            </div>
+
+            <!-- Mode Selection -->
+            <div id="mode-screen" style="display:none;">
+                <div class="ai-message">
+                    <div class="question" id="mode-question"></div>
+                </div>
+                <div class="options" style="margin-top:50px;">
+                    <button onclick="startPersonalityQuiz()">1. PERSONALITY PROFILE</button>
+                    <button onclick="startAnimalQuiz()">2. SPIRIT ANIMAL SCAN</button>
+                    <button onclick="resetToNameScreen()">3. TERMINATE SESSION</button>
+                </div>
+            </div>
+
+            <!-- Game Screen -->
+            <div id="game-screen" style="display:none;">
+                <div class="ai-message">
+                    <div class="question" id="question-text"></div>
+                </div>
+                <div id="loader" style="display:none; text-align:center; padding:80px 0; color:var(--neon-cyan); font-size:1.9rem;">
+                    NEURAL PROCESSING...
+                </div>
+                <div class="options" id="options">
+                    <button onclick="answer(2)">YES</button>
+                    <button onclick="answer(1)">SOMETIMES</button>
+                    <button onclick="answer(0)">NO</button>
+                </div>
+            </div>
+
+            <!-- Result Screen with Fixed Scrolling -->
+            <div class="result-screen" id="result-screen">
+                <div class="result-panel">
+                    <div class="result-title" id="result-title">NEURAL ANALYSIS COMPLETE</div>
+                    <div class="character" id="character-name">UNKNOWN</div>
+                    
+                    <div class="confidence" id="confidence">CONFIDENCE: 00%</div>
+                    <div class="confidence-bar">
+                        <div class="confidence-fill" id="confidence-fill"></div>
+                    </div>
+
+                    <div class="description" id="description"></div>
+                    
+                    <div class="neural-vector" id="neural-vector"></div>
+
+                    <div class="result-buttons">
+                        <button onclick="retakeSameScan()">RETAKE SAME SCAN</button>
+                        <button onclick="reInitializeScan()">RE-INITIALIZE SCAN</button>
+                        <button onclick="resetToNameScreen()">TERMINATE SESSION</button>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <script>
+        let audioCtx;
+        function initAudio() {
+            if (!audioCtx) {
+                audioCtx = new (window.AudioContext || window.webkitAudioContext)();
+            }
+        }
+
+        // Simple mechanical keyboard sound
+        function playKeyboardSound() {
+            initAudio();
+            const osc = audioCtx.createOscillator();
+            osc.type = 'square';
+            osc.frequency.setValueAtTime(1850 + Math.random() * 700, audioCtx.currentTime);
+            const gain = audioCtx.createGain();
+            gain.gain.value = 0.018;
+            gain.gain.exponentialRampToValueAtTime(0.001, audioCtx.currentTime + 0.022);
+            const filter = audioCtx.createBiquadFilter();
+            filter.type = 'highpass';
+            filter.frequency.value = 1150;
+            osc.connect(filter).connect(gain).connect(audioCtx.destination);
+            osc.start();
+            osc.stop(audioCtx.currentTime + 0.025);
+        }
+
+        function playBeep(freq = 760, duration = 45, vol = 0.15) {
+            initAudio();
+            const osc = audioCtx.createOscillator();
+            const gain = audioCtx.createGain();
+            osc.type = 'sine';
+            osc.frequency.value = freq;
+            gain.gain.value = vol;
+            osc.connect(gain).connect(audioCtx.destination);
+            osc.start();
+            setTimeout(() => osc.stop(), duration);
+        }
+
+        function playProcessSound() {
+            playBeep(600, 70, 0.13);
+            setTimeout(() => playBeep(880, 55, 0.11), 120);
+        }
+
+        function playResultSound() {
+            playBeep(1050, 90, 0.17);
+            setTimeout(() => playBeep(1480, 100, 0.15), 110);
+            setTimeout(() => playBeep(780, 180, 0.12), 300);
+        }
+
+        let userName = "";
+        let currentMode = "";
+        let score = {};
+        let usedQuestions = [];
+        let questionCount = 0;
+        const MAX_QUESTIONS = 10;
+        let lastQuestionTrait = null;
+        let isTyping = false;
+
+        // Questions & Characters (kept same)
+        const personalityQuestions = [
+            { q: "Do you feel energized after spending time in large crowds?", trait: "extrovert" },
+            { q: "Do you prefer deep conversations with one person over small talk with many?", trait: "introvert" },
+            { q: "You think Logic and facts are more important than feelings when making decisions?", trait: "logical" },
+            { q: "You often come up with wild, unconventional ideas.", trait: "creative" },
+            { q: "Do you enjoy taking risks and trying new experiences?", trait: "risky" },
+            { q: "You stay calm under pressure and rarely panic.", trait: "calm" },
+            { q: "Do you like being the center of attention?", trait: "extrovert" },
+            { q: "Do you need time alone to recharge after social events?", trait: "introvert" },
+            { q: "You analyze problems step-by-step before acting.", trait: "logical" },
+            { q: "Do you enjoy artistic activities like drawing, writing, or music?", trait: "creative" },
+            { q: "Would you try extreme sports or adrenaline rushing activities?", trait: "risky" },
+            { q: "You rarely get angry or frustrated in difficult situations.", trait: "calm" }
+        ];
+
+        const animalQuestions = [
+            { q: "Do you prefer to work and live independently?", trait: "independent" },
+            { q: "You love exploring new places and ideas.", trait: "curious" },
+            { q: "Loyalty to your close circle is extremely important to you.", trait: "loyal" },
+            { q: "Are you good at hiding your true emotions?", trait: "stealthy" },
+            { q: "You move and think quickly in most situations.", trait: "fast" },
+            { q: "You adapt easily to changes in your environment.", trait: "adaptable" },
+            { q: "You are most active and creative at night.", trait: "nocturnal" },
+            { q: "Do you solve problems in clever and unexpected ways?", trait: "clever" },
+            { q: "Are you patient and willing to wait for the right moment?", trait: "patient" },
+            { q: "Do People often describe you as elegant or graceful?", trait: "graceful" }
+        ];
+
+        const personalityCharacters = [
+            { name: "THE ARTIST", desc: "Creative and imaginative. You express yourself through art, music, or design.", traits: {creative:3, introvert:2, calm:1, logical:1, risky:1, extrovert:1} },
+            { name: "THE YOUTUBER", desc: "Outgoing and energetic. You love sharing your life and ideas with others.", traits: {extrovert:3, creative:2, risky:1, calm:1, logical:1, introvert:0} },
+            { name: "THE ATHLETE", desc: "Active, competitive, and disciplined. You thrive on movement and challenges.", traits: {risky:2, calm:2, extrovert:2, logical:1, creative:1, introvert:0} },
+            { name: "THE POLITICIAN", desc: "Charismatic leader who enjoys debating and influencing people.", traits: {extrovert:3, logical:2, calm:1, risky:1, creative:1, introvert:0} },
+            { name: "THE WRITER", desc: "Thoughtful and introspective. You express deep ideas through words.", traits: {introvert:3, creative:3, calm:2, logical:1, risky:0, extrovert:0} },
+            { name: "THE MUSICIAN", desc: "Passionate and emotional. Music is your main way of connecting with the world.", traits: {creative:3, extrovert:2, introvert:1, calm:1, risky:1, logical:0} },
+            { name: "THE PHOTOGRAPHER", desc: "Observant and patient. You capture moments and see beauty in details.", traits: {creative:2, introvert:2, calm:2, logical:1, risky:1, extrovert:1} },
+            { name: "THE TEACHER", desc: "Patient and helpful. You enjoy explaining things and helping others grow.", traits: {calm:3, extrovert:2, logical:2, creative:1, introvert:1, risky:0} },
+            { name: "THE ENTREPRENEUR", desc: "Ambitious and risk-taking. You love building new ideas and businesses.", traits: {risky:3, creative:2, extrovert:2, logical:2, calm:1, introvert:0} },
+            { name: "THE SCIENTIST", desc: "Curious and logical. You love discovering how things work.", traits: {logical:3, introvert:2, calm:2, creative:1, risky:1, extrovert:0} },
+            { name: "THE ACTOR", desc: "Expressive and adaptable. You enjoy performing and becoming different characters.", traits: {extrovert:3, creative:3, risky:1, calm:1, logical:0, introvert:0} },
+            { name: "THE DESIGNER", desc: "Creative and detail-oriented. You turn ideas into beautiful, functional things.", traits: {creative:3, logical:2, introvert:1, calm:1, risky:1, extrovert:1} }
+        ];
+
+        const animalCharacters = [
+            { name: "WOLF", desc: "Loyal and strong, you value your close circle while maintaining independence.", traits: {loyal:3, independent:2, clever:2, patient:1, fast:1, adaptable:1} },
+            { name: "OWL", desc: "Wise and patient, you observe quietly and think deeply before acting.", traits: {nocturnal:3, patient:3, clever:2, independent:2, curious:1, graceful:1} },
+            { name: "FOX", desc: "Clever and adaptable, you find smart solutions to any challenge.", traits: {clever:3, adaptable:3, curious:2, fast:1, stealthy:1, independent:1} },
+            { name: "PANTHER", desc: "Graceful and powerful, you move with quiet confidence and precision.", traits: {independent:3, stealthy:3, patient:2, graceful:2, nocturnal:1, curious:0} },
+            { name: "EAGLE", desc: "Independent and visionary, you see the bigger picture from above.", traits: {independent:3, graceful:2, curious:2, fast:1, patient:1, loyal:0} },
+            { name: "CHEETAH", desc: "Fast and agile, you act quickly and love movement.", traits: {fast:3, adaptable:2, curious:2, independent:1, risky:2, stealthy:0} },
+            { name: "OCTOPUS", desc: "Highly intelligent and adaptable, you solve problems in creative ways.", traits: {adaptable:3, clever:3, independent:2, stealthy:2, curious:2, patient:1} },
+            { name: "CAT", desc: "Graceful, curious, and independent — you do things on your own terms.", traits: {graceful:3, curious:3, independent:2, stealthy:2, adaptable:1, nocturnal:1} },
+            { name: "BEAR", desc: "Strong, calm, and protective — you are patient and loyal to your own space.", traits: {loyal:2, calm:2, patient:3, independent:2, adaptable:1, clever:1} },
+            { name: "DEER", desc: "Gentle, graceful, and alert — you adapt quickly and move with elegance.", traits: {graceful:3, adaptable:2, patient:2, curious:1, stealthy:1, independent:1} },
+            { name: "DOLPHIN", desc: "Playful, intelligent, and social — you enjoy life and your friends.", traits: {curious:3, loyal:2, clever:2, adaptable:2, fast:1, graceful:1} },
+            { name: "SNAKE", desc: "Patient and strategic, you adapt smoothly and shed old habits easily.", traits: {patient:3, stealthy:3, adaptable:2, clever:2, independent:1, nocturnal:1} }
+        ];
+
+        function typeText(element, text, withSound = false) {
+            isTyping = true;
+            element.innerHTML = '';
+            let i = 0;
+            const interval = setInterval(() => {
+                if (i < text.length) {
+                    element.innerHTML += text.charAt(i);
+                    if (withSound) playKeyboardSound();
+                    i++;
+                } else {
+                    clearInterval(interval);
+                    isTyping = false;
+                }
+            }, 42);
+        }
+
+        function updateScore(trait, value) {
+            if (score[trait] !== undefined) score[trait] += value;
+        }
+
+        function findBestMatch(charactersList) {
+            let bestMatch = null;
+            let highestScore = -Infinity;
+            charactersList.forEach(char => {
+                let total = 0;
+                Object.keys(char.traits).forEach(trait => {
+                    if (score[trait] !== undefined) total += score[trait] * char.traits[trait];
+                });
+                if (total > highestScore) {
+                    highestScore = total;
+                    bestMatch = char;
+                }
+            });
+            const maxPossible = Object.values(score).reduce((a, b) => a + b, 0) * 3 || 1;
+            let confidence = Math.max(60, Math.min(99, Math.floor((highestScore / maxPossible) * 100) + 35));
+            return { character: bestMatch, confidence };
+        }
+
+        function askNextQuestion() {
+            if (questionCount >= MAX_QUESTIONS) {
+                showResult();
+                return;
+            }
+            questionCount++;
+            const questions = currentMode === "personality" ? personalityQuestions : animalQuestions;
+            const unused = questions.filter((_, i) => !usedQuestions.includes(i));
+            const q = unused.length ? unused[Math.floor(Math.random() * unused.length)] : questions[Math.floor(Math.random() * questions.length)];
+
+            usedQuestions.push(questions.indexOf(q));
+            lastQuestionTrait = q.trait;
+            typeText(document.getElementById('question-text'), q.q);
+        }
+
+        function answer(value) {
+            if (!lastQuestionTrait || isTyping) return;
+            playBeep(950, 40);
+            playKeyboardSound();
+            updateScore(lastQuestionTrait, value);
+
+            const loader = document.getElementById('loader');
+            const options = document.getElementById('options');
+            options.style.display = 'none';
+            loader.style.display = 'block';
+            playProcessSound();
+
+            setTimeout(() => {
+                loader.style.display = 'none';
+                options.style.display = 'flex';
+                askNextQuestion();
+            }, 950);
+        }
+
+        function showResult() {
+            const charactersList = currentMode === "personality" ? personalityCharacters : animalCharacters;
+            const result = findBestMatch(charactersList);
+            const char = result.character;
+
+            document.getElementById('game-screen').style.display = 'none';
+            const resultScreen = document.getElementById('result-screen');
+            resultScreen.style.display = 'flex';
+            resultScreen.scrollTop = 0;
+
+            document.getElementById('result-title').textContent = 
+                currentMode === "personality" ? "PERSONALITY ANALYSIS COMPLETE" : "SPIRIT ANIMAL SCAN COMPLETE";
+
+            document.getElementById('character-name').textContent = char.name;
+            document.getElementById('confidence').textContent = `CONFIDENCE: ${result.confidence}%`;
+
+            const fill = document.getElementById('confidence-fill');
+            fill.style.width = '0%';
+            setTimeout(() => fill.style.width = `${result.confidence}%`, 400);
+
+            document.getElementById('description').innerHTML = `
+                ${char.desc}<br><br>
+                <span style="color:#00f0ff;">NEURAL VECTOR STABILIZED — ${userName.toUpperCase()}</span>
+            `;
+
+            let vectorHTML = `TRAIT READOUT:<br><br>`;
+            Object.keys(score).forEach(trait => {
+                vectorHTML += `${trait.toUpperCase().padEnd(12)} │ ${score[trait]}<br>`;
+            });
+            document.getElementById('neural-vector').innerHTML = vectorHTML;
+
+            playResultSound();
+
+            const charEl = document.getElementById('character-name');
+            charEl.classList.add('glitch');
+            setTimeout(() => charEl.classList.remove('glitch'), 2800);
+        }
+
+        function startModeSelection() {
+            initAudio();                    // Initialize audio on user click
+            playBeep(720);
+            playKeyboardSound();
+            userName = document.getElementById('user-name').value.trim() || "SUBJECT";
+            document.getElementById('name-screen').style.display = 'none';
+            document.getElementById('mode-screen').style.display = 'block';
+            typeText(document.getElementById('mode-question'), `WELCOME, ${userName.toUpperCase()}. SELECT PROTOCOL:`);
+        }
+
+        function startPersonalityQuiz() {
+            playBeep(850);
+            playKeyboardSound();
+            currentMode = "personality";
+            score = { extrovert:0, introvert:0, logical:0, creative:0, risky:0, calm:0 };
+            usedQuestions = [];
+            questionCount = 0;
+            document.getElementById('mode-screen').style.display = 'none';
+            document.getElementById('game-screen').style.display = 'block';
+            askNextQuestion();
+        }
+
+        function startAnimalQuiz() {
+            playBeep(850);
+            playKeyboardSound();
+            currentMode = "animal";
+            score = { independent:0, curious:0, loyal:0, stealthy:0, fast:0, adaptable:0, nocturnal:0, clever:0, patient:0, graceful:0 };
+            usedQuestions = [];
+            questionCount = 0;
+            document.getElementById('mode-screen').style.display = 'none';
+            document.getElementById('game-screen').style.display = 'block';
+            askNextQuestion();
+        }
+
+        function retakeSameScan() {
+            playBeep(720);
+            playKeyboardSound();
+            document.getElementById('result-screen').style.display = 'none';
+            document.getElementById('game-screen').style.display = 'block';
+            usedQuestions = [];
+            questionCount = 0;
+            if (currentMode === "personality") {
+                score = { extrovert:0, introvert:0, logical:0, creative:0, risky:0, calm:0 };
+            } else {
+                score = { independent:0, curious:0, loyal:0, stealthy:0, fast:0, adaptable:0, nocturnal:0, clever:0, patient:0, graceful:0 };
+            }
+            askNextQuestion();
+        }
+
+        function reInitializeScan() {
+            playBeep(720);
+            playKeyboardSound();
+            document.getElementById('result-screen').style.display = 'none';
+            document.getElementById('mode-screen').style.display = 'block';
+            typeText(document.getElementById('mode-question'), `WELCOME BACK, ${userName.toUpperCase()}. SELECT PROTOCOL:`);
+        }
+
+        function resetToNameScreen() {
+            playBeep(720);
+            playKeyboardSound();
+            document.getElementById('result-screen').style.display = 'none';
+            document.getElementById('mode-screen').style.display = 'none';
+            document.getElementById('name-screen').style.display = 'block';
+            document.getElementById('user-name').value = "";
+        }
+
+        // Initialize - Show intro text instantly (no typing)
+        window.onload = () => {
+            setTimeout(() => {
+                document.getElementById('name-screen').style.display = 'block';
+            }, 200);
+        };
+
+        // Expose functions
+        window.startModeSelection = startModeSelection;
+        window.startPersonalityQuiz = startPersonalityQuiz;
+        window.startAnimalQuiz = startAnimalQuiz;
+        window.answer = answer;
+        window.retakeSameScan = retakeSameScan;
+        window.reInitializeScan = reInitializeScan;
+        window.resetToNameScreen = resetToNameScreen;
+    </script>
+</body>
+</html> 
